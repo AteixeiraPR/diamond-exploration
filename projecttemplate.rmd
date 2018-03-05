@@ -1,0 +1,677 @@
+Loan Analysis (Prosper Provided) by Andrew Teixeira
+========================================================
+
+Load all relevant libraries
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(gridExtra)
+library(knitr)
+```
+
+Establish working directory
+```{r}
+#Establishing the working directory
+getwd()
+```
+
+Load the data into the variable "loans"
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+loans <- read.csv('prosperLoanData.csv')
+```
+
+Examining the column names of the dataset 'loans' to get a sense of what is within the dataset.
+
+```{r}
+#Examing the column names of the dataset 'loans' to get a sense of what is within the dataset. 
+names(loans)
+head(loans)
+```
+
+
+# Univariate Plots Section
+
+We will be looking at a few variables that relate to both the loan itself (dollar amount, term) and the borrower (credit score, prosper rating) in order to determine what is likely to influence the total amount Prosper is willing to lend a borrower and at what rate. 
+
+**Borrower Data Exploration**: Subsection: Loan Original Amount
+
+We will be examining the LoanOriginalAmount data from the loans dataset to better understand the frequency of loan values provided by Prosper. 
+
+```{r}
+head(sort(table(loans$LoanOriginalAmount), decreasing = T), 20)
+```
+
+```{r}
+summary(loans$LoanOriginalAmount)
+```
+
+The table above shows that loans of 4,000 are the most provided by Propser. This value is below the median of 6500 and the Mean of 8337, which suggests there are some large loans that are pulling the mean forward.
+
+The max loan provided by Prosper was 35,000.
+
+```{r}
+qplot(data = loans, x = loans$LoanOriginalAmount, binwidth = 1000)+
+  geom_histogram()+
+  scale_x_continuous(breaks = seq(0,35000, 2000))+
+  ggtitle('Count of Loan Original Amount')
+```
+
+The histogram above shows a spike at around 3,000- 4,000. This suggests there are a great number of loans provided in this area. Let's examine further. 
+
+```{r}
+qplot(data = loans, x = loans$LoanOriginalAmount, binwidth = 500)+
+  geom_histogram()+
+  coord_cartesian(xlim = c(0,5000))+
+  scale_x_continuous(breaks = seq(0,5000, 1000))+
+  ggtitle('Count of Loan Original Amount by Binwidth = 500')
+```
+
+```{r}
+head(sort(table(loans$LoanOriginalAmount), decreasing = T), 20)
+```
+
+
+**Borrower Data Exploration**: Subsection: Loan Term
+
+Let's look at the loan term provided by Prosper to get a sense of what types of loans and duration of loans Prosper gives to their borrowers. 
+
+```{r}
+sort(table(loans$Term))
+```
+
+
+```{r}
+table(loans$Term)
+ggplot(data = loans, aes(x = loans$Term), binwidth = 1)+
+  geom_histogram()+
+  scale_x_continuous(breaks = seq(0,62,2))+
+  ggtitle('Count of loan terms')
+```
+
+From the table and histogram above, we see that Prosper only gives loans in 12, 36, and 60 month terms. The majority of loans are provided on a 36 month term payment plan. 
+
+
+**Borrower Data Exploration**: Subsection: Amount Delinquent
+
+We will examine the amount of money that is delinquent per borrower per Prosper loan. 
+
+```{r}
+DelinquenciesValues <- subset(loans, loans$AmountDelinquent != 0)
+table(DelinquenciesValues$AmountDelinquent)
+ggplot(data = DelinquenciesValues, aes(x = AmountDelinquent))+
+  geom_histogram()+
+  ggtitle('Count of Amount Delinquent')
+```
+
+```{r}
+summary(loans$AmountDelinquent)
+```
+
+```{r}
+head(sort(table(loans$AmountDelinquent), decreasing = TRUE), 50)
+```
+
+```{r}
+DelinquenciesValues <- subset(loans, loans$AmountDelinquent != 0)
+table(DelinquenciesValues$AmountDelinquent)
+ggplot(data = DelinquenciesValues, aes(x = AmountDelinquent))+
+  geom_histogram(binwidth = 10)+
+  coord_cartesian(xlim = c(0,2000))+
+  ggtitle('Count of Loans by Amount Delinquent')
+```
+
+
+The data above in the histograms and table shows that the majority of Prosper borrowers have 0 dollars in delinquency, a good sign if you are a lender. After adjusting the histogram to account for this reality (removing all values with 0), we see that Prosper, as expected, 
+
+**Borrower Data Exploration**: Subsection: Delinquencies Last 7 Years
+
+Examining the Delinquencies Last 7 Years variable will help us understand the type of borrowers that are included in this dataset. DelinquenciesLast7Years may provide a glimpse into the reliability of borrowers in this set. 
+
+```{r}
+sort(table(loans$DelinquenciesLast7Years), decreasing = T)
+summary(loans$DelinquenciesLast7Years)
+```
+
+> **Findings** : Unsurprisingly, we see the vast majority of delinquent loans in the last 7 years for borrowers at 0. The median reflects this by also being 0, however, a mean of 4.155 shows that there are some potentially large amounts of delinquencies in the last 7 years per borrowers that may be driving this value up. 
+In the table, we see that there are, in fact, 110 borrowers who have 99 delinquencies in the past 7 years. This appears to be a strange lift from 98 (3 total borrowers). Is this a maximum value? Could it be human error? 
+
+```{r}
+qplot(data = loans ,x=DelinquenciesLast7Years, binwidth = 1)+
+  geom_histogram()+
+  scale_x_continuous()+
+  scale_y_continuous(
+    limits = c(0,100000)
+  )+
+  ggtitle('Count of Delinquencies Last 7 Years')
+```
+
+> **Findings**: A simple histogram shows that, in fact, the majority of delinquencies in last 7 years for borrowers were negatively skewed, unsurprisingly considering that banks and lenders are in the business of ensuring their loans are paid back. Let's examine and plot that surreptitious the DelinquenciesLast7Years on the larger end of the plot.
+
+```{r}
+qplot(data = loans, x = loans$DelinquenciesLast7Years)+
+  geom_histogram(binwidth = 1)+
+  scale_x_continuous(
+    limits = c(80,100)
+  )+
+  ggtitle('Count of Delinquencies Last 7 years')
+  
+```
+> **Findings** The histogram from DelinquenciesLast7Years > 79 show that the #99 is a strange occurance that may be artifically driving the mean up for the total DelinquenciesLast7Years. We will attempt to determine, later in this analysis, what makes an individual become delinquent with some multivariate tests and plots. 
+
+**Borrower Data Exploration**: Subsection: BorrowerAPR
+We are getting a better sense of the types of borrowers Prosper loans money to. Now, we will examine the BorrowerAPR to determine how Prosper makes $ of their customers. 
+
+```{r}
+qplot(data = loans ,x=BorrowerAPR)+
+  geom_histogram(binwidth = .01)+
+  ggtitle('Count of Loans by Borrower APR')
+```
+
+The findings above dictate a few peaks: Once between .15 and .20, again at .3, and once more at around .36. 
+Let's create a sorted table to examine these trends. 
+
+```{r}
+head(sort(table(loans$BorrowerAPR), decreasing = T), 20)
+```
+
+```{r}
+summary(loans$BorrowerAPR)
+```
+
+Interestingly, we see that Prosper's most commonly issued APR is .3672, this is well above the mean of .21976 and the median of .20976. 
+
+Let's remove all NA's from APR for analysis - adding the Mean line, we can examine how many values are falling above or below the mean. 
+
+```{r}
+Clean_APR <- subset(loans, !is.na(BorrowerAPR))
+mean(Clean_APR$BorrowerAPR)
+
+qplot(data = Clean_APR ,x=BorrowerAPR, binwidth = .01)+
+  geom_histogram()+
+  scale_x_continuous(breaks = seq(0,0.4,.02))+
+  geom_vline(xintercept = mean(Clean_APR$BorrowerAPR), color = 'green', linetype = 'longdash')+
+  ggtitle('Count of Loans by Borrower APR')
+```
+
+We see a number of peaks and valleys within the BorrowerAPR data, which suggests there are certain integers that Prosper commonly issues when it comes to BorrowerAPR. 
+
+**Borrower Data Exploration**: Subsection: Income Range
+```{r}
+summary(loans$IncomeRange)
+```
+
+```{r}
+loans_IncomeRanges <- subset(loans, loans$IncomeRange != "Not displayed")
+summary(loans_IncomeRanges$IncomeRange)
+qplot(data=loans_IncomeRanges, x=loans_IncomeRanges$IncomeRange)+
+  geom_bar()+
+  ggtitle('Count of Loans by Income Range')
+```
+
+**Findings** 
+
+
+```{r}
+qplot(data=loans, x=BorrowerState)+
+  geom_bar()+
+  ggtitle('Count of Loans by Borrower State')
+```
+
+```{r}
+sort(table(loans$BorrowerState), decreasing = T)
+```
+California has the largeset amount of users on Prosper with 14,717 borrowers, while North Dakota has the least with 52 borrowers. 
+
+Borrower Subsection: TotalInquiries 
+
+```{r}
+qplot(data=loans, x=TotalInquiries)+
+  geom_histogram()+
+  ggtitle('Count of Loans by Total Inquiries')
+```
+
+
+```{r}
+head(sort(table(loans$TotalInquiries), decreasing = T), 20)
+```
+The data above show that most borrowers have very few inquiries on their credit, potentially showing that Prosper selects those who are steadfast and committed to paying down their debts. 
+
+
+
+```{r}
+qplot(data=loans, x=DebtToIncomeRatio)+
+  geom_histogram()+
+  ggtitle('Count of Loans by Debt To Income Ratio')
+```
+
+Given that the 10 value appears to be an anomaly, let's run a summary on Debt to Income Ratio
+
+```{r}
+summary(loans$DebtToIncomeRatio)
+```
+
+Let's further examine Debt to Income Ratios that are above the 3rd Quartile
+```{r}
+High_DTIR <- subset(loans, loans$DebtToIncomeRatio > .32)
+sort(table(High_DTIR$DebtToIncomeRatio),decreasing = T)
+```
+
+From the data above, that there are a few loans at various price points that have obscenely high debt to income ratios. Perhaps these folks have a great deal of collateral to put up.
+
+
+```{r}
+qplot(data=loans, x=EmploymentStatus)+
+  geom_bar()+
+  ggtitle('Count of Loans by Employment Status')
+```
+
+The graph above shows that most borrowers are "employed" or categorized as "full-time"
+
+```{r}
+qplot(data = loans, x=ProsperRating..numeric.)+
+  geom_bar()+
+  ggtitle('Count of Loans by Prosper Rating Numeric')
+```
+
+Let's examine the credit scores of applicant's by creating a new variable that takes the mean of credit score upper and credit score lower. We will, when creating a histogram, start the x-axis at 300 to avoid lower values that are outliers or have omitted values. 
+```{r}
+loans$AvgCreditScore <- (loans$CreditScoreRangeLower + loans$CreditScoreRangeUpper) / 2
+```
+
+```{r}
+ggplot(data = loans, aes(x = loans$AvgCreditScore), binwidth = 50)+
+  geom_histogram()+
+  scale_x_continuous(breaks = seq(250,850,50), limits = c(250,850))+
+  ggtitle('Count of Loans by Average Credit Score')
+```
+
+From the above, we can see that most credit scores fall within 650 and 700. Let's bucket those credit scores to create a categorical variable for later analysis. 
+
+```{r}
+loans$csBucket <- cut(loans$AvgCreditScore, breaks = c(400, 500, 600, 700, 800, 900))
+ggplot(data = subset(loans, !is.na(csBucket)), aes(x=csBucket))+
+  geom_bar()+
+  ggtitle('Count of Loans by Credit Score Bucket')
+
+```
+
+When we look at the bucket bar chart below, we see there are a nearly equal amount of loans provided to average credit scores of between 600-700 and 700-800, with very few happening below or above. 
+
+
+# Univariate Analysis
+
+> **Tip**: Now that you've completed your univariate explorations, it's time to
+reflect on and summarize what you've found. Use the questions below to help you
+gather your observations and add your own if you have other thoughts!
+
+### What is the structure of your dataset?
+The structure of the dataset includes 113,937 observations of 81 variables, meaning there are 113,937 individual loans oberved. We have created two new variables to better examine credit score. avgCreditScore takes the average of the upper and lower credit score to take the mean for each individual borrower. 
+The new variable CSBucket is a categorical variable that will help determine how credit may influence loans. 
+
+### What is/are the main feature(s) of interest in your dataset?
+The main features of interest for me in the dataset include: 
+Prosper Score: What factors contribute most, or have the highest correlation, to establshing a Prosper rating. 
+
+Also, is the LoanOriginalAmount for highly related to Income Range and credit score?  
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+I am also interested in what levels of credit scores influence the eventual borrower APR. Are there distinct patterns between the credit worthiness of a borrower and whether they get a loan?
+
+### Did you create any new variables from existing variables in the dataset?
+Yes, I created the avgCreditScore variable to determine what number lies between the lower and upper credit score for each user. Then, I used the cut() function in order to bin the average credit scores per user. 
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+I had removed na's and blank values from a number of individual datapoints in order to better run analysis such as bar graphs. 
+
+
+# Bivariate Plots Section
+
+> **Tip**: Based on what you saw in the univariate plots, what relationships
+between variables might be interesting to look at in this section? Don't limit
+yourself to relationships between a main output feature and one of the
+supporting variables. Try to look at relationships between supporting variables
+as well.
+
+**Loan original amount by Prosper Rating**
+```{r echo=FALSE, Bivariate_Plots}
+table(loans$ProsperRating..numeric.)
+qplot(data = loans, y=loans$LoanOriginalAmount, x = loans$ProsperRating..Alpha., 
+      geom='boxplot')+
+  ggtitle('Loan Original Amount by Prosper Rating Alpha')
+```
+
+From the box plot above, we see that loans with Prosper Ratings of A, AA, and BB have much higher quartiles, outliers, and loan original amounts, which makes sense given that Prosper Ratings of C, D, E, HR are of lesser quality according to the Prosper website. 
+
+Let's limit the ylim to further examine the median of the loan categories. 
+
+```{r}
+qplot(data = loans, y=loans$LoanOriginalAmount, x = loans$ProsperRating..Alpha., 
+      geom='boxplot')+
+  coord_cartesian(ylim = c(0,20000))+
+  ggtitle('Loan Original Amount by Prosper Rating Alpha')
+```
+
+From the zoomed in data, we can see that AA loans have the highest median of any categoryat slightly above 10,000. Let's run a table to see what the median # actually is. 
+
+```{r}
+by(loans$LoanOriginalAmount, loans$ProsperRating..Alpha., summary)
+```
+The table above shows AA ratings with the median of 10,940, the highest of any category. 
+
+**Loan original amount by Delinquencies Last 7 Years*
+We've examined the loan original amount from the Prosper Rating, let's see if borrower delinquencies have any effect on the loan original amount. 
+
+```{r}
+ggplot(data = loans, aes(x =loans$DelinquenciesLast7Years, y=loans$LoanOriginalAmount))+
+  geom_point()+
+  ggtitle('Loan Original Amount by Delinquencies Last 7 years')
+```
+The plot above shows some obvious levels to the data, as Propser seems to provide loans in 5,000 increments, however, we do see a slight pattern in which, when Delinquencies in the last 7 years rise, the total amount of a loan often falls. 
+
+Let's add transparency and jitter in order to account for overplotting. 
+```{r}
+ggplot(data = loans, aes(x =loans$DelinquenciesLast7Years, y=loans$LoanOriginalAmount))+
+  geom_point(alpha = 1/30, position = "jitter")+
+  ggtitle('Loan Original Amount by Delinquencies Last 7 years')
+```
+
+The above chart, with it's dark line on the y-axis at 0, shows that Prosper very much likes to provide loans to those with little to no delinquencies in the past 7 years. There are a few points at 99 in the chart, which may be an anomoly or human error, and is worth further questioning of Prosper's data capture. 
+
+**Loan original amount by Employment Status**
+Building on the picture we are beginning to see with regards to loan original amount, let's examine Employment status and loan original amount.
+
+```{r}
+summary(loans$EmploymentStatus)
+```
+
+
+In this data, I will create a new DF called loans_by_employmentstats as there are 2255 borrowers in which the status is blank, you can see this in the table abbove. 
+
+```{r}
+loans_by_employment <- subset(loans, loans$EmploymentStatus != "")
+qplot(data = loans_by_employment, y=loans_by_employment$LoanOriginalAmount, x = loans_by_employment$EmploymentStatus, 
+      geom='boxplot')+
+  ggtitle('Loan Original Amount by Employment')
+```
+
+The boxplot above shows that employed Prosper borrowers, either through a company or self-employed, have higher median loan amounts than other categories, including Full-time and Part-time. This is odd, as employed persons are logically either employed full-time or part-time or self-employed. This is a question for Prosper as to what the classification methodology is. 
+
+```{r}
+qplot(data = loans_by_employment, y=loans_by_employment$LoanOriginalAmount, x = loans_by_employment$EmploymentStatus, 
+      geom='boxplot')+
+  coord_cartesian(ylim = c(0,20000))+
+  geom_hline(yintercept = median(loans_by_employment$LoanOriginalAmount), color = "green")+
+  ggtitle('Loan Original Amount by Number of Investors and Employment Status')
+```
+
+By placing the overall median line on the graph, we see that only the categories of "Employed" and "self-employed" actually have a higher median amount than the overall median, with the other categories falling behind. 
+
+**Loan Original Amount by Estimated Return**
+We've got a sense of the borrowers, now let's take a look at the loan itself by examining the loan original amount and its estimated return. 
+```{r}
+ggplot(data = loans, aes(x=loans$EstimatedReturn, y=loans$LoanOriginalAmount))+
+  geom_point(alpha = 1/20, position = 'jitter')+
+  ggtitle('Loan Original Amount by Estimated Return')
+```
+
+
+The graph above, with slight transparency and jitter, show that the estimated return for most loans is falling around .05 and 1.5. Interestingly, there are a fair amount of loans that have negative returns, much more than those that have estimated returns of .2 or more. 
+
+A Pearson correlation test below shows a negative correlation of -.28. I would have predicted greater correlation, however, the negative number suggests as the loan original amount increases, the estimated return decreases, a common phenomenmon.
+
+```{r}
+cor.test(loans$EstimatedReturn, loans$LoanOriginalAmount)
+```
+
+
+
+**Loan original amount by Investors**
+```{r}
+mean(loans$Investors)
+```
+
+By taking the mean amount of investors per loan, which is calculated to around 80, we can begin to see how many people it actually takes to get a Prosper loan fully-funed. A scatterplot can visualize this phenomeon. 
+```{r}
+
+ggplot(data = loans, aes(x = loans$Investors, y = loans$LoanOriginalAmount))+
+  geom_point(alpha = 1/10)+
+  geom_vline(xintercept = mean(loans$Investors), color = "green")+
+  ggtitle('Loan Original Amount by Number of Investors')
+```
+
+The scatter plot above shows that, as loan amounts grow, so do the total amount of investors needed. The mean of just above 80 shows that the majority of loans are falling at a similar price level, thus a similar amount of investors are needed for analogous loans. 
+
+A correlation below shows a Pearson score of .38, lesser than what I expected. 
+
+```{r}
+cor.test(loans$Investors, loans$LoanOriginalAmount)
+```
+
+**Loan original amount by Credit Score**
+
+We will, finally, use our newly binned data to examine loan original amount by credit score bucket. This will provide a nice picture as to which credit score buckets have the highest median Loan Original amount. 
+```{r}
+qplot(data = loans, y=LoanOriginalAmount, x = csBucket, 
+      geom='boxplot')+
+  geom_hline(yintercept = median(loans$LoanOriginalAmount), color = "green")+
+  ggtitle('Loan Original Amount by Credit Score Bucket')
+```
+
+Unsurprsiingly, the buckets of 700-800 and 800-900 both have medians that exceed the overall median. It is interesting to note that 600-700 credit scores have a median Loan Original Amount less than the overall median, an indication credit scores in this area are not deemed as worthy for a loan. 
+
+
+# Bivariate Analysis
+
+> **Tip**: As before, summarize what you found in your bivariate explorations
+here. Use the questions below to guide your discussion.
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+Most interestingly, I discovered that a credit score of 600-700 has a substantially lower median loan original amount than credit scores of 700-800. This was surprising to me, as I suspected a slight decrease but, personally, have always considered a credit score of 600-700 to be somewhat trustworthy. 
+
+Also, the total amount of investors per loan was quite intriguing, as there were substantial outliers from the mean of 80 per loan. We will further examine this by exploring categories that may influence that in the multi-variate analysis portion.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+Yes, the relationship between employment status was particularly interesting, as "full time" employees have a signficiantly lower median loan amount than those simply categorized as "employed". I suspect there may be an error in Prosper's classification system. 
+
+### What was the strongest relationship you found?
+The relationship between total investors and dollar amount had a Pearson score of .38, the strongest relationship I uncovered.
+
+Interestingly, loan original amount and estimated return were negatively correlated, showing that as a loan amount is greater, estimated returns are generally expected to fail. 
+
+# Multivariate Plots Section
+
+> **Tip**: Now it's time to put everything together. Based on what you found in
+the bivariate plots section, create a few multivariate plots to investigate
+more complex interactions between variables. Make sure that the plots that you
+create here are justified by the plots you explored in the previous section. If
+you plan on creating any mathematical models, this is the section where you
+will do that.
+
+**Examining loan original amound and borrower APR by Credit Score Bucket.**
+
+```{r echo=FALSE, Multivariate_Plots}
+ggplot(data = subset(loans,!is.na(loans$csBucket)), aes(x = BorrowerAPR, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/2, aes(color = csBucket))+
+  ggtitle('Loan Original Amount by Borrower APR and Credit Score Bucket')
+```
+
+The above scatterplot shows that csBucket 800-900 are largely consolidated at a little less than .1 for their Borrower APR, despite loan amount. This shows that Prosper generally loans funds to those with good credit at various levels of dollar amount.
+
+You can see distinct, almost vertical patterns of increased BorrowerAPR based on their credit score. Lower credit scores from 400-600 are largely consolidated lower on the y-axis at varying APRs, showing that credit scores that are lesser do not get loaned as large amounts as other credit scores. 
+
+
+
+**Examining loan original amount and estimated return by Credit Score Bucket.**
+
+```{r}
+ggplot(data = subset(loans,!is.na(loans$csBucket)), aes(x = EstimatedReturn, y = LoanOriginalAmount))+
+  geom_point(aes(color = csBucket))+
+  ggtitle('Loan Original Amount by Estimated Return and Credit Score Bucket')
+```
+Similarly to our analysis on borrower apr, estimated returns are largely attributed to certain credit scores. The highest end of credit scores (800-900), have a distinct Estimated Return of around .05 percent, with 700-800 categories at around .075 to .1, and 600-700 following thereafter with growing estimated returns. This could be because those with higher credit scores pay their loans off quicker, at lower rates. 
+
+Interestingly, there are a bevy of loans at the 600-700 credit score level that do not pay off loans that are less than 10,000 in total value. Even though they have credit scores similarly to those borrowing at higher dollar amounts, they were unable to pay their comparable smaller debts. 
+
+**Loan Original Amount, # of Investors, Credit Score
+
+```{r}
+ggplot(data = subset(loans,!is.na(loans$csBucket)), aes(x = Investors, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/3, aes(color = csBucket))+
+  geom_vline(xintercept = median(loans$Investors))+
+  ggtitle('Loan Original Amount by Number of Investors and Credit Score Bucket')
+```
+The graph above shows that the total amount of investors increases as the loan original amount increases, and invariably, the higher credit score users are more adept at getting additional investors. In the scatterplot, you hardly see any 400-700 credit score borrowers beyond the overall median line.
+
+Interestingly, the higher end credit score borrowers of 800-900 generally have a # of investors per loan that is higher than the median and higher than there lesser counterparts, even twhen the loan original amount is the same, this means more individuals are investing smaller amounts per individual loan. 
+
+
+**Loan Original Amount, Loan Investors, Prosper Rating**
+
+We run the tables below to view which Prosper Rating has the most loans and the highest loan amounts, we find that a score of 7 receives the highest median loan and a score of 1-2 have the lowest medians. This may be an indication of the loan worthiness of the borrowers - thus, we assue 7 to be the best loan for chance of repayment and 1 being the worse. 
+```{r}
+table(loans$ProsperRating..numeric.)
+```
+
+```{r}
+by(loans$LoanOriginalAmount, loans$ProsperRating..numeric., summary)
+```
+
+```{r}
+ggplot(data = loans, aes(x = Investors, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/20, position = 'jitter', aes(color = loans$ProsperRating..numeric.))+
+  geom_vline(xintercept = median(loans$Investors))+
+  ggtitle('Loan Original Amount by Number of Investors and Numeric Prosper Rating')
+```
+The graph above shows that, as the number of investors and the loan original amount increases, more high-quality loans of Prosper Ratings of 4-5-6-7 are prevalent. 
+
+**Delinquencies 7 Years Loan Investors, Prosper Rating Numeric**
+```{r}
+ggplot(data = loans_by_employment, aes(x = DelinquenciesLast7Years, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/2, position = 'jitter', aes(color = loans_by_employment$EmploymentStatus))+
+  geom_vline(xintercept = mean(loans_by_employment$DelinquenciesLast7Years), color = 'black')+
+  ggtitle('Loan Original Amount by Delinquencies Last 7 Years and Employment Status')
+```
+When looking at the loan original amount and delinquencies the last 7 years, it is no surprise that the majority of points on the graph are those that are employed, even when transparency is added for overplotting. With the "employed" category as "red", you will notice the prevalence of red dots as the loan amount increases, and the lack of red dots as the delinquencies the last 7 years increase below $5,000 loan amounts. 
+
+This means that those who are not categorized as "employed" in the Prosper system have higher delinquencies in the past 7 years, and do not get the same level of loan as those who are employed. 
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+In this section, we wanted to look closer at what categories may be determining loan amounts, the amount of investors, and the delinquencies in the last 7 years. We noticed that those who were not categorized as "employed" saw themselves receiving loans of roughly less than 5,000. Those same individuals were likely to have a higher rate of delinquencies in the last 7 years than those categorized as "employed", and their loan amounts were lesser than their employed counterparts even if the delinquencies in the last 7 years were the same. 
+
+We also discovered that Prospers numeric rating runs from 1-7, with 7 being the most trustworthy rating.
+
+### Were there any interesting or surprising interactions between features?
+
+I was overall surprised to see that the number of investors increases as credit score and prosper rating increases. It was my inclination that if a loan were to be deemed safe or less risky, more investors would provide higher individual amounts towards that loan, thus, lowering the total amount of investors per loan.
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+We did not create any models with this dataset. 
+
+------
+
+# Final Plots and Summary
+
+> **Tip**: You've done a lot of exploration and have built up an understanding
+of the structure of and relationships between the variables in your dataset.
+Here, you will select three plots from all of your previous exploration to
+present here as a summary of some of your most interesting findings. Make sure
+that you have refined your selected plots for good titling, axis labels (with
+units), and good aesthetic choices (e.g. color, transparency). After each plot,
+make sure you justify why you chose each plot by describing what it shows.
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+ggplot(data = loans_by_employment, aes(x = DelinquenciesLast7Years, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/2, position = 'jitter', aes(color = loans_by_employment$EmploymentStatus))+
+  geom_vline(xintercept = mean(loans_by_employment$DelinquenciesLast7Years), color = 'black')+
+  ggtitle('Loan Original Amount by Delinquencies Last 7 Years and Employment Status')+
+  xlab('Number of Delinquencies Last 7 Years')+
+  ylab('Loan Original Amount')+
+  labs(colour="Employment Status")
+```
+
+### Description One
+The plot above shows the Loan Original Amount on the y-axis, the number of delinquencies in the last 7 years on the x-axis, with each plot indicating an employment status as a categorical variable.
+
+This graph shows to me that, should you be employed, you have a marginal chance of receiving a loan from Prosper. Though the large majority of loans are at 0 delinquencies, it is important to notice that there are a great number of loans provided to people who have be delinquent dozens of times. You are more likely to receive a greater loan amount, however, if your employment status is "employed"
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+ggplot(data = subset(loans,!is.na(loans$csBucket)), aes(x = Investors, y = LoanOriginalAmount))+
+  geom_point(alpha = 1/3, aes(color = csBucket))+
+  geom_vline(xintercept = median(loans$Investors))+
+  ggtitle('Loan Original Amount by Number of Investors and Credit Score Bucket')+
+  xlab('Number of Investors')+
+  ylab('Loan Original Amount')+
+  labs(colour="Credit Score")
+```
+
+### Description Two
+The graph above shows the number of investors per loan on the x-axis, the total loan original amount on the y-axis, with the categorical variable of credit score bucket. This plot shows that, as the loan amount increases, the number of investors increases as well.
+
+We already know from prior graphs that higher loan amounts are more likely to be people employed with no delinquencies on their account, couple that with higher credit scores and higher loan amounts are generally more safe. We see that, as loan amounts increase, the number of investors per loan also increases. 
+
+This, to me, is a strange phenomenmon, as I would have guessed that, if a loan were to be less risky, investors would invest greater amounts towards that loan, thus limiting the total amount of investors per loan. 
+
+The plot shows borrowers with credit scores between 700-900 are generally receiving more investors at higher loan amounts than other credit scores. 
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+ggplot(data = subset(loans,!is.na(loans$csBucket)), aes(x = EstimatedReturn, y = LoanOriginalAmount))+
+  geom_point(aes(color = csBucket))+
+  ggtitle('Loan Original Amount by Estimated Return and Credit Score Bucket')+
+  xlab('Estimated Return on Investment')+
+  ylab('Loan Original Amount')+
+  labs(colour="Credit Score")
+```
+
+### Description Three
+The above plot shows the estimated return per loan on the x-axis, with the loan original amount on the y-axis and the credit score bucket as the categorical variable.
+
+This plot shows that estimated returns will generally fall between .05 and .15, are nearly normally distributed, and will be somewhat dependent on the credit score of the borrower. Borrowers with higher credit scores are shown to provide less returns to investors, likely due to lower interest rates and ability to pay back a loan quickly. 
+
+The plot also shows that estimated returns for higher credit score borrowers are largely the same regardless of the loan amount, showing that loan amount does not really affect return rate, and vice versa.
+------
+
+# Reflection
+
+> **Tip**: Here's the final step! Reflect on the exploration you performed and
+the insights you found. What were some of the struggles that you went through?
+What went well? What was surprising? Make sure you include an insight into
+future work that could be done with the dataset.
+
+The Prosper data was quite large and there were a number of variables that were omitted from this analysis simply due to time and expectations from the course. With greater time, one could examine the areas such as investment from friends to see if certain credit score users or certain Prosper loans are more likely to get loans from their friends.
+
+It was interesting to note that there are a higher number of investors per loan, particularly when the credit score of the borrower is high. This goes against my intution that single or a handful of investors would want to buy out a loan completely. This potentially may show some skepticism of the Prosper platform.
+
+I did not conduct any analysis of loan variables over time, as my questions were more focused on what affects a loan amount and the amount of investors investing in said loan. It may be interesting to explore whether estimated returns lowered or expanded overtime for Prosper loans. 
